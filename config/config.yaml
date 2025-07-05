@@ -1,0 +1,13 @@
+commission_rate: 0.001
+csv_data_folder: D:/CryptoBacktestData
+end_date: '2025-06-30'
+initial_capital: 10000.0
+save_data_to_csv: true
+start_date: '2025-01-01'
+strategy_parameters:
+  Moving_Average_Crossover:
+    long_window: 30
+    short_window: 10
+tickers:
+- BTCUSD
+timeframe: 1h
