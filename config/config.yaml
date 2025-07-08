@@ -1,8 +1,7 @@
+active_strategy: Moving_Average_Crossover
 commission_rate: 0.001
-csv_data_folder: D:/CryptoBacktestData
 end_date: '2025-06-30'
 initial_capital: 10000.0
-save_data_to_csv: true
 start_date: '2025-01-01'
 strategy_parameters:
   Moving_Average_Crossover:

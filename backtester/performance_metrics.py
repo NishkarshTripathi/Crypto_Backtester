@@ -34,11 +34,14 @@ def calculate_sharpe_ratio(portfolio_history, risk_free_rate=0.0, annualization_
         return 0.0
 
     daily_returns = portfolio_history['daily_returns']
-    if daily_returns.std() == 0:
-        return 0.0  # Avoid division by zero if no volatility
+    # Ensure there's enough data and variability to calculate std dev
+    if len(daily_returns) < 2 or daily_returns.std() == 0:
+        return 0.0
 
     avg_daily_return = daily_returns.mean()
-    sharpe_ratio = (avg_daily_return - risk_free_rate / annualization_factor) / daily_returns.std()
+    std_daily_return = daily_returns.std()
+
+    sharpe_ratio = (avg_daily_return - risk_free_rate / annualization_factor) / std_daily_return
     return sharpe_ratio * np.sqrt(annualization_factor)
 
 
@@ -53,88 +56,91 @@ def calculate_sortino_ratio(portfolio_history, risk_free_rate=0.0, annualization
     daily_returns = portfolio_history['daily_returns']
     downside_returns = daily_returns[daily_returns < 0]
 
-    if downside_returns.empty or downside_returns.std() == 0:
-        return 0.0  # Avoid division by zero if no downside volatility or no negative returns
+    if len(downside_returns) < 2 or downside_returns.std() == 0:
+        # If no downside returns or no variability in downside returns
+        return 0.0
 
     avg_daily_return = daily_returns.mean()
-    sortino_ratio = (avg_daily_return - risk_free_rate / annualization_factor) / downside_returns.std()
+    downside_std_dev = downside_returns.std()
+
+    sortino_ratio = (avg_daily_return - risk_free_rate / annualization_factor) / downside_std_dev
     return sortino_ratio * np.sqrt(annualization_factor)
 
 
 def calculate_profit_factor(trades):
     """
-    Calculates the Profit Factor (Gross Profits / Gross Losses).
+    Calculates the Profit Factor.
+    Profit Factor = Gross Profit / Gross Loss
     """
-    if trades.empty or 'PnL' not in trades.columns:
+    if trades.empty:
         return 0.0
 
-    gross_profits = trades[trades['PnL'] > 0]['PnL'].sum()
-    gross_losses = trades[trades['PnL'] < 0]['PnL'].abs().sum()
+    gross_profit = trades[trades['PnL'] > 0]['PnL'].sum()
+    gross_loss = trades[trades['PnL'] < 0]['PnL'].sum()  # PnL is already negative for losses
 
-    if gross_losses == 0:
-        return 1.0 if gross_profits > 0 else 0.0  # If no losses, and profits > 0, consider it highly profitable
-    return gross_profits / gross_losses
+    if gross_loss == 0:
+        return np.inf if gross_profit > 0 else 0.0  # Avoid division by zero
+
+    return abs(gross_profit / gross_loss)
 
 
 def calculate_expectancy(trades):
     """
-    Calculates the Expectancy per trade.
-    Expectancy = (Win Rate * Average Win) - (Loss Rate * Average Loss)
+    Calculates the Expectancy of the trading system.
+    Expectancy = (Win Rate * Avg Win) - (Loss Rate * Avg Loss)
     """
-    if trades.empty or 'PnL' not in trades.columns:
+    if trades.empty:
         return 0.0
 
-    # Filter for completed trades (SELL trades with calculated PnL)
-    completed_trades_pnl = trades[trades['Type'] == 'SELL']['PnL']
-    if completed_trades_pnl.empty:
+    winning_trades = trades[trades['PnL'] > 0]['PnL']
+    losing_trades = trades[trades['PnL'] < 0]['PnL']
+
+    total_trades = len(trades[trades['Type'] == 'SELL'])  # Consider only completed trades for expectancy
+
+    if total_trades == 0:
         return 0.0
 
-    winning_trades_pnl = completed_trades_pnl[completed_trades_pnl > 0]
-    losing_trades_pnl = completed_trades_pnl[completed_trades_pnl < 0]
+    win_rate = len(winning_trades) / total_trades
+    loss_rate = len(losing_trades) / total_trades
 
-    total_completed_trades = len(completed_trades_pnl)
-    winning_trades_count = len(winning_trades_pnl)
-    losing_trades_count = len(losing_trades_pnl)
+    avg_win = winning_trades.mean() if not winning_trades.empty else 0.0
+    avg_loss = losing_trades.mean() if not losing_trades.empty else 0.0  # Will be negative or zero
 
-    win_rate = winning_trades_count / total_completed_trades if total_completed_trades > 0 else 0.0
-    loss_rate = losing_trades_count / total_completed_trades if total_completed_trades > 0 else 0.0
-
-    avg_win = winning_trades_pnl.mean() if winning_trades_count > 0 else 0.0
-    avg_loss = losing_trades_pnl.mean() if losing_trades_count > 0 else 0.0  # This will be a negative value
-
-    expectancy = (win_rate * avg_win) + (loss_rate * avg_loss)
+    expectancy = (win_rate * avg_win) + (loss_rate * avg_loss)  # Add because avg_loss is already negative
     return expectancy
 
 
 def calculate_capture_ratios(portfolio_history, benchmark_daily_returns):
     """
-    Calculates Up-Market and Down-Market Capture Ratios.
+    Calculates Up-Market Capture and Down-Market Capture ratios.
 
     Args:
-        portfolio_history (pd.DataFrame): DataFrame containing 'daily_returns' of the strategy.
-        benchmark_daily_returns (pd.Series): Daily returns of the benchmark.
+        portfolio_history (pd.DataFrame): DataFrame containing 'daily_returns'.
+        benchmark_daily_returns (pd.Series): Series of benchmark daily returns.
 
     Returns:
         tuple: (up_market_capture, down_market_capture)
     """
+    if portfolio_history.empty or 'daily_returns' not in portfolio_history.columns or benchmark_daily_returns.empty:
+        return 0.0, 0.0
+
+    # Align the returns based on their index (timestamps)
+    aligned_returns = pd.DataFrame({
+        'strat_returns': portfolio_history['daily_returns'],
+        'bench_returns': benchmark_daily_returns
+    }).dropna()
+
+    if aligned_returns.empty:
+        return 0.0, 0.0
+
+    strat_returns = aligned_returns['strat_returns']
+    bench_returns = aligned_returns['bench_returns']
+
+    up_market_days = bench_returns > 0
+    down_market_days = bench_returns < 0
+
     up_market_capture = 0.0
     down_market_capture = 0.0
-
-    if portfolio_history.empty or 'daily_returns' not in portfolio_history.columns or benchmark_daily_returns.empty:
-        return up_market_capture, down_market_capture
-
-    # Align strategy and benchmark returns by their common index
-    common_index = portfolio_history.index.intersection(benchmark_daily_returns.index)
-    strat_returns = portfolio_history['daily_returns'].loc[common_index]
-    bench_returns = benchmark_daily_returns.loc[common_index]
-
-    if strat_returns.empty or bench_returns.empty:
-        return up_market_capture, down_market_capture
-
-    # Up-market days are when benchmark returns are positive
-    up_market_days = bench_returns > 0
-    # Down-market days are when benchmark returns are negative
-    down_market_days = bench_returns < 0
 
     # Up-Market Capture
     if up_market_days.any():
@@ -163,7 +169,7 @@ def calculate_capture_ratios(portfolio_history, benchmark_daily_returns):
         if bench_cum_down_return != 0:
             down_market_capture = (strat_cum_down_return / bench_cum_down_return) * 100
         elif strat_cum_down_return != 0:
-            down_market_capture = -np.inf if strat_cum_down_return < 0 else np.inf  # Strategy moved while benchmark was flat/zero
+            down_market_capture = np.inf  # Strategy lost while benchmark was flat (not good)
         # else both are 0, down_market_capture remains 0.0
 
     return up_market_capture, down_market_capture

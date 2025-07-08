@@ -30,8 +30,8 @@ def main():
         sample_config = {
             'tickers': ['BTCUSD'],
             'timeframe': '1h',
-            'start_date': '2025-01-01',
-            'end_date': '2025-06-30',
+            'start_date': '2025-01-01',  # Changed to a past date for actual data fetching
+            'end_date': '2025-06-30',  # Changed to a past date for actual data fetching
             'initial_capital': 10000.0,
             'commission_rate': 0.001,
             'strategy_parameters': {  # New nested key for strategy parameters
@@ -39,12 +39,12 @@ def main():
                     'short_window': 10,
                     'long_window': 30
                 }
-            }
+            },
+            'active_strategy': 'Moving_Average_Crossover'  # New key to select active strategy
         }
-        os.makedirs(os.path.dirname(config_path), exist_ok=True)
         with open(config_path, 'w') as f:
             yaml.dump(sample_config, f, default_flow_style=False)
-        print("A sample config.yaml has been created. Please review and adjust it as needed.")
+        print("A sample config.yaml has been created. Please review and run again.")
         return
 
     with open(config_path, 'r') as f:
@@ -56,47 +56,58 @@ def main():
     end_date = config.get('end_date', None)
     initial_capital = config.get('initial_capital', 10000.0)
     commission_rate = config.get('commission_rate', 0.001)
+    active_strategy_name = config.get('active_strategy', None)
 
-    strategy_params = config.get('strategy_parameters', {}).get('Moving_Average_Crossover', {})
-    short_window = strategy_params.get('short_window', 10)
-    long_window = strategy_params.get('long_window', 30)
-
-    if not tickers:
-        print("No tickers specified in config.yaml. Exiting.")
+    if not tickers or not start_date or not end_date or not active_strategy_name:
+        print("Error: Missing essential configuration parameters (tickers, start_date, end_date, active_strategy).")
         return
+
+    strategy_parameters = config.get('strategy_parameters', {})
+    current_strategy_params = strategy_parameters.get(active_strategy_name, {})
+
+    print(f"Running backtest for tickers: {tickers} with {active_strategy_name} strategy.")
+    print(f"Timeframe: {timeframe}, Start: {start_date}, End: {end_date}")
+    print(f"Initial Capital: ${initial_capital}, Commission Rate: {commission_rate}")
+    print(f"Strategy Parameters ({active_strategy_name}): {current_strategy_params}")
 
     data_handler = DeltaExchangeDataHandler()
 
     for ticker in tickers:
-        print(f"\n--- Running Backtest for {ticker} ---")
+        print(f"\n--- Running backtest for {ticker} ---")
         try:
             # --- 2. Fetch Historical Data ---
             historical_data = data_handler.fetch_historical_data(ticker, timeframe, start_date, end_date)
+
             if historical_data.empty:
                 print(f"No historical data fetched for {ticker}. Skipping backtest.")
                 continue
 
-            # --- 3. Initialize Strategy ---
-            # Pass historical_data directly to the strategy constructor
-            strategy = MovingAverageCrossoverStrategy(
-                data_feed=historical_data.copy(),  # Pass a copy to avoid modifying original data_feed
-                short_window=short_window,
-                long_window=long_window
-            )
+            print(f"Successfully fetched {len(historical_data)} data points for {ticker}.")
+
+            # --- 3. Initialize and Run Strategy ---
+            # Dynamically select strategy based on config
+            if active_strategy_name == 'Moving_Average_Crossover':
+                strategy = MovingAverageCrossoverStrategy(
+                    data_feed=historical_data,
+                    short_window=current_strategy_params.get('short_window', 10),
+                    long_window=current_strategy_params.get('long_window', 30)
+                )
+            else:
+                raise ValueError(f"Unknown strategy: {active_strategy_name}")
 
             # --- 4. Run Backtest ---
-            # Pass original historical_data (not signals) to the engine
             backtesting_engine = BacktestingEngine(
-                data_feed=historical_data.copy(),  # Pass a copy to avoid modification
+                data_feed=historical_data,  # Original historical data needed for benchmark in engine
                 strategy=strategy,
                 initial_capital=initial_capital,
                 commission_rate=commission_rate
             )
-            backtest_results = backtesting_engine.run_backtest()
 
+            # Unpack the three returned DataFrames
+            backtest_results = backtesting_engine.run_backtest()
             portfolio_history = backtest_results['portfolio_history']
             trades = backtest_results['trades']
-            num_trades = backtest_results['num_trades']
+            strategy_execution_data = backtest_results['strategy_execution_data']
 
             # --- 5. Display Results ---
             print("\n--- Backtest Summary ---")
@@ -104,45 +115,44 @@ def main():
             print(f"Final Capital: ${backtest_results['final_capital']:.2f}")
             print(f"Total PnL: ${backtest_results['total_pnl']:.2f}")
             print(f"Total Returns: {backtest_results['total_returns_percent']:.2f}%")
-            print(f"Total Trades (Buy Signals): {num_trades}")
-            print(f"Total Completed Trades (Sell Signals): {backtest_results['total_completed_trades']}")
+            print(f"Number of Entry Signals (BUYs): {backtest_results['num_trades']}")
+            num_completed_trades = backtest_results['total_completed_trades']
+            print(f"Number of Completed Trades (SELLs): {num_completed_trades}")
             print(f"Winning Trades: {backtest_results['winning_trades']}")
             print(f"Losing Trades: {backtest_results['losing_trades']}")
             print(f"Win Rate: {backtest_results['win_rate_percent']:.2f}%")
             print(f"Average PnL per Completed Trade: ${backtest_results['avg_pnl_per_trade']:.2f}")
-
-            # New Metrics from performance_metrics.py
             print(f"Max Drawdown: {backtest_results['max_drawdown_percent']:.2f}%")
-            print(f"Sharpe Ratio: {backtest_results['sharpe_ratio']:.4f}")
-            print(f"Sortino Ratio: {backtest_results['sortino_ratio']:.4f}")
+            print(f"Sharpe Ratio: {backtest_results['sharpe_ratio']:.2f}")
+            print(f"Sortino Ratio: {backtest_results['sortino_ratio']:.2f}")
             print(f"Profit Factor: {backtest_results['profit_factor']:.2f}")
             print(f"Expectancy: ${backtest_results['expectancy']:.2f}")
-            print(f"Up-Market Capture: {backtest_results['up_market_capture']:.2f}%")
-            print(f"Down-Market Capture: {backtest_results['down_market_capture']:.2f}%")
+            print(f"Up Market Capture: {backtest_results['up_market_capture']:.2f}%")
+            print(f"Down Market Capture: {backtest_results['down_market_capture']:.2f}%")
 
-            if num_trades > 0:
+            if num_completed_trades > 0:  # Check total_completed_trades instead of num_trades for trade specific prints
                 print("\n--- Trades Executed (first 5) ---")
-                # Using .to_string() for better console formatting of DataFrames
                 print(trades[['Timestamp', 'Type', 'Price', 'Units', 'Commission', 'PnL']].head().to_string())
                 print("\n--- Trades Executed (last 5) ---")
                 print(trades[['Timestamp', 'Type', 'Price', 'Units', 'Commission', 'PnL']].tail().to_string())
 
                 print("\n--- Portfolio Value History (first 5) ---")
-                # Ensure 'timestamp' column is used if reset_index() changes the name
-                print(portfolio_history.reset_index()[
-                          ['timestamp', 'cash', 'units_held', 'holdings_value', 'total_value', 'short_ma',
-                           'long_ma', 'benchmark_value']].head().to_string())
+                # Ensure 'timestamp' is visible in prints
+                print(portfolio_history.reset_index()[[
+                    'timestamp', 'cash', 'units_held', 'holdings_value', 'total_value',
+                    'benchmark_value']].head().to_string())
                 print("\n--- Portfolio Value History (last 5) ---")
-                print(portfolio_history.reset_index()[
-                          ['timestamp', 'cash', 'units_held', 'holdings_value', 'total_value', 'short_ma',
-                           'long_ma', 'benchmark_value']].tail().to_string())
+                print(portfolio_history.reset_index()[[
+                    'timestamp', 'cash', 'units_held', 'holdings_value', 'total_value',
+                    'benchmark_value']].tail().to_string())
 
                 # --- Plotting calls (using the new plotting module) ---
                 plotting.plot_cumulative_returns_vs_benchmark(portfolio_history, ticker)
                 plotting.plot_portfolio_performance(portfolio_history, ticker)  # Original equity curve
                 plotting.plot_drawdowns(backtest_results['drawdown_series'], backtest_results['max_drawdown_percent'],
                                         ticker)
-                plotting.plot_trades_on_price_chart(historical_data, trades, ticker)
+                # Pass strategy_execution_data to plot_trades_on_price_chart
+                plotting.plot_trades_on_price_chart(strategy_execution_data, trades, ticker)
                 plotting.plot_rolling_metrics(portfolio_history, ticker)
                 plotting.plot_returns_distribution(portfolio_history, ticker)
                 plotting.plot_pnl_per_trade_distribution(trades, ticker)

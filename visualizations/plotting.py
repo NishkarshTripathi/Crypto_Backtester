@@ -40,60 +40,65 @@ def plot_drawdowns(drawdown_series, max_drawdown_percent, ticker):
     plt.tight_layout()
 
 
-def plot_trades_on_price_chart(historical_data, trades, ticker):
+def plot_trades_on_price_chart(data_to_plot, trades, ticker):
     """
-    Plots the asset's close price and marks buy/sell trades.
-    Assumes historical_data has 'close', and trades has 'Timestamp', 'Type', 'Price'.
+    Plots the asset's close price, moving averages, and trade entry/exit points.
+
+    Args:
+        data_to_plot (pd.DataFrame): DataFrame containing 'close' price, 'short_ma', 'long_ma', and 'final_signal'.
+                                     This is the strategy_execution_data.
+        trades (pd.DataFrame): DataFrame containing trade information.
+        ticker (str): The ticker symbol for the plot title.
     """
-    if historical_data.empty or 'close' not in historical_data.columns:
-        print(f"No historical data to plot for {ticker} price chart.")
+    if data_to_plot.empty or 'close' not in data_to_plot.columns:
+        print(f"No price data to plot trades for {ticker}.")
         return
-    if trades.empty:
-        print(f"No trades to plot for {ticker}.")
 
     plt.figure(figsize=(14, 7))
-    plt.plot(historical_data.index, historical_data['close'], label=f'{ticker} Close Price', alpha=0.7)
+    plt.plot(data_to_plot.index, data_to_plot['close'], label='Close Price', alpha=0.7)
 
+    # Plotting Moving Averages if they exist in data_to_plot
+    if 'short_ma' in data_to_plot.columns:
+        plt.plot(data_to_plot.index, data_to_plot['short_ma'], label=f'Short MA', color='orange')
+    if 'long_ma' in data_to_plot.columns:
+        plt.plot(data_to_plot.index, data_to_plot['long_ma'], label=f'Long MA', color='green')
+
+    # Plot Buy and Sell signals using the trades DataFrame
     buy_trades = trades[trades['Type'] == 'BUY']
     sell_trades = trades[trades['Type'] == 'SELL']
 
     if not buy_trades.empty:
-        plt.scatter(buy_trades['Timestamp'], buy_trades['Price'], marker='^', color='green', s=100, label='Buy Signal',
-                    alpha=1.0)
+        plt.scatter(buy_trades['Timestamp'], buy_trades['Price'], marker='^', color='green', s=100, label='Buy Signal', alpha=1)
     if not sell_trades.empty:
-        plt.scatter(sell_trades['Timestamp'], sell_trades['Price'], marker='v', color='red', s=100, label='Sell Signal',
-                    alpha=1.0)
+        plt.scatter(sell_trades['Timestamp'], sell_trades['Price'], marker='v', color='red', s=100, label='Sell Signal', alpha=1)
 
-    # Optional: Plotting MAs if they exist in historical_data (assuming strategy adds them)
-    if 'short_ma' in historical_data.columns and 'long_ma' in historical_data.columns:
-        plt.plot(historical_data.index, historical_data['short_ma'], label='Short MA', color='orange', linestyle='--')
-        plt.plot(historical_data.index, historical_data['long_ma'], label='Long MA', color='purple', linestyle='--')
 
-    plt.title(f'{ticker} Price Chart with Buy/Sell Signals and Moving Averages')
+    plt.title(f'{ticker} Price Chart with Trades and Indicators')
     plt.xlabel('Date')
     plt.ylabel('Price')
-    plt.grid(True)
     plt.legend()
+    plt.grid(True)
     plt.tight_layout()
 
 
 def plot_cumulative_returns_vs_benchmark(portfolio_history, ticker):
     """
-    Plots the cumulative returns of the strategy vs. a benchmark.
-    Assumes 'total_value' and 'benchmark_value' are in portfolio_history,
-    and both start from the same initial capital.
+    Plots the cumulative returns of the strategy against a simple buy-and-hold benchmark.
     """
     if portfolio_history.empty or 'total_value' not in portfolio_history.columns or 'benchmark_value' not in portfolio_history.columns:
-        print(f"Insufficient data to plot cumulative returns vs. benchmark for {ticker}.")
+        print(f"Not enough data to plot cumulative returns vs benchmark for {ticker}.")
         return
 
+    # Normalize to initial capital for cumulative returns percentage
+    strategy_returns = (portfolio_history['total_value'] / portfolio_history['total_value'].iloc[0] - 1) * 100
+    benchmark_returns = (portfolio_history['benchmark_value'] / portfolio_history['benchmark_value'].iloc[0] - 1) * 100
+
     plt.figure(figsize=(14, 7))
-    plt.plot(portfolio_history.index, portfolio_history['total_value'], label='Strategy Equity Curve', color='blue')
-    plt.plot(portfolio_history.index, portfolio_history['benchmark_value'], label='Benchmark (Buy & Hold)',
-             color='orange', linestyle='--')
-    plt.title(f'{ticker} Cumulative Returns: Strategy vs. Benchmark')
+    plt.plot(strategy_returns.index, strategy_returns, label='Strategy Cumulative Returns', color='purple')
+    plt.plot(benchmark_returns.index, benchmark_returns, label='Benchmark Cumulative Returns', color='gray', linestyle='--')
+    plt.title(f'{ticker} Cumulative Returns vs. Benchmark')
     plt.xlabel('Date')
-    plt.ylabel('Value ($)')
+    plt.ylabel('Cumulative Returns (%)')
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
@@ -101,35 +106,35 @@ def plot_cumulative_returns_vs_benchmark(portfolio_history, ticker):
 
 def plot_rolling_metrics(portfolio_history, ticker, window=30):
     """
-    Plots rolling Sharpe Ratio and Rolling Volatility of daily returns.
-    Assumes 'daily_returns' is in portfolio_history.
+    Plots rolling Sharpe Ratio and Volatility.
     """
     if portfolio_history.empty or 'daily_returns' not in portfolio_history.columns:
-        print(f"Insufficient data for rolling metrics for {ticker}.")
+        print(f"No daily returns data for rolling metrics plot for {ticker}.")
         return
 
-    daily_returns = portfolio_history['daily_returns']
+    # Ensure there's enough data for the rolling window
+    if len(portfolio_history) < window:
+        print(f"Not enough data points ({len(portfolio_history)}) for a {window}-day rolling window for {ticker}.")
+        return
 
-    # Rolling Sharpe Ratio (using risk-free rate = 0)
-    # Annualization factor of 365 for crypto daily data
-    rolling_sharpe = (daily_returns.rolling(window=window).mean() /
-                      daily_returns.rolling(window=window).std()) * np.sqrt(365)
+    rolling_sharpe = portfolio_history['daily_returns'].rolling(window=window).apply(
+        lambda x: x.mean() / (x.std() + 1e-9) * np.sqrt(365), raw=True
+    )
+    rolling_volatility = portfolio_history['daily_returns'].rolling(window=window).std() * np.sqrt(365)
 
-    # Rolling Volatility (annualized standard deviation)
-    rolling_volatility = daily_returns.rolling(window=window).std() * np.sqrt(365)
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10), sharex=True)
 
-    ax1.plot(rolling_sharpe.index, rolling_sharpe, label=f'Rolling Sharpe Ratio ({window}-day)', color='green')
-    ax1.set_title(f'{ticker} Rolling Sharpe Ratio')
+    ax1.plot(rolling_sharpe.index, rolling_sharpe, label=f'Rolling {window}-Day Sharpe Ratio', color='darkblue')
+    ax1.set_title(f'{ticker} Rolling Sharpe Ratio (Window: {window} Days)')
     ax1.set_ylabel('Sharpe Ratio')
     ax1.grid(True)
     ax1.legend()
 
-    ax2.plot(rolling_volatility.index, rolling_volatility, label=f'Rolling Volatility ({window}-day)', color='purple')
-    ax2.set_title(f'{ticker} Rolling Volatility')
+    ax2.plot(rolling_volatility.index, rolling_volatility, label=f'Rolling {window}-Day Volatility', color='darkred')
+    ax2.set_title(f'{ticker} Rolling Volatility (Window: {window} Days)')
     ax2.set_xlabel('Date')
-    ax2.set_ylabel('Annualized Volatility')
+    ax2.set_ylabel('Volatility (Annualized)')
     ax2.grid(True)
     ax2.legend()
 
@@ -138,8 +143,7 @@ def plot_rolling_metrics(portfolio_history, ticker, window=30):
 
 def plot_returns_distribution(portfolio_history, ticker, bins=50):
     """
-    Plots a histogram of daily/period returns.
-    Assumes 'daily_returns' is in portfolio_history.
+    Plots a histogram of daily returns.
     """
     if portfolio_history.empty or 'daily_returns' not in portfolio_history.columns:
         print(f"No daily returns data to plot distribution for {ticker}.")
@@ -174,9 +178,9 @@ def plot_pnl_per_trade_distribution(trades, ticker, bins=50):
         return
 
     plt.figure(figsize=(10, 6))
-    plt.hist(completed_trades_pnl, bins=bins, color='lightgreen', edgecolor='black')
+    plt.hist(completed_trades_pnl, bins=bins, color='lightcoral', edgecolor='black')
     plt.title(f'{ticker} Distribution of PnL per Completed Trade')
-    plt.xlabel('PnL per Trade ($)')
+    plt.xlabel('Profit/Loss ($)')
     plt.ylabel('Frequency')
     plt.grid(axis='y', alpha=0.75)
     plt.tight_layout()
