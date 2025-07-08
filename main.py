@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt  # Still needed for plt.show()
 from backtester.data_handler import DeltaExchangeDataHandler
 from backtester.backtesting_engine import BacktestingEngine
 from strategies.moving_average_crossover import MovingAverageCrossoverStrategy  # Import our specific strategy
+from strategies.mean_reversion import MeanReversionStrategy
 
 # Import our new modules
 from backtester import performance_metrics
@@ -34,13 +35,17 @@ def main():
             'end_date': '2025-06-30',  # Changed to a past date for actual data fetching
             'initial_capital': 10000.0,
             'commission_rate': 0.001,
-            'strategy_parameters': {  # New nested key for strategy parameters
+            'strategy_parameters': {
                 'Moving_Average_Crossover': {
                     'short_window': 10,
                     'long_window': 30
+                },
+                'Mean_Reversion': {
+                    'window': 20,
+                    'std_dev_multiplier': 2.0
                 }
             },
-            'active_strategy': 'Moving_Average_Crossover'  # New key to select active strategy
+            'active_strategy': 'Mean_Reversion'  # New key to select active strategy
         }
         with open(config_path, 'w') as f:
             yaml.dump(sample_config, f, default_flow_style=False)
@@ -91,6 +96,12 @@ def main():
                     data_feed=historical_data,
                     short_window=current_strategy_params.get('short_window', 10),
                     long_window=current_strategy_params.get('long_window', 30)
+                )
+            elif active_strategy_name == 'Mean_Reversion':  # New strategy instantiation
+                strategy = MeanReversionStrategy(
+                    data_feed=historical_data,
+                    window = current_strategy_params.get('window', 20),
+                    std_dev_multiplier = current_strategy_params.get('std_dev_multiplier', 2.0)
                 )
             else:
                 raise ValueError(f"Unknown strategy: {active_strategy_name}")

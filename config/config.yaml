@@ -1,4 +1,4 @@
-active_strategy: Moving_Average_Crossover
+active_strategy: Mean_Reversion
 commission_rate: 0.001
 end_date: '2025-06-30'
 initial_capital: 10000.0
@@ -7,6 +7,9 @@ strategy_parameters:
   Moving_Average_Crossover:
     long_window: 30
     short_window: 10
+  Mean_Reversion:
+    window: 20
+    std_dev_multiplier: 2.0
 tickers:
 - BTCUSD
 timeframe: 1h

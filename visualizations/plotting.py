@@ -58,10 +58,19 @@ def plot_trades_on_price_chart(data_to_plot, trades, ticker):
     plt.plot(data_to_plot.index, data_to_plot['close'], label='Close Price', alpha=0.7)
 
     # Plotting Moving Averages if they exist in data_to_plot
+    # For Moving Average Crossover
     if 'short_ma' in data_to_plot.columns:
         plt.plot(data_to_plot.index, data_to_plot['short_ma'], label=f'Short MA', color='orange')
     if 'long_ma' in data_to_plot.columns:
         plt.plot(data_to_plot.index, data_to_plot['long_ma'], label=f'Long MA', color='green')
+
+    # For Mean Reversion
+    if 'upper_band' in data_to_plot.columns:
+        plt.plot(data_to_plot.index, data_to_plot['upper_band'], label=f'Upper Band', color='orange')
+    if 'middle_band' in data_to_plot.columns:
+        plt.plot(data_to_plot.index, data_to_plot['middle_band'], label=f'Middle Band', color='green')
+    if 'lower_band' in data_to_plot.columns:
+        plt.plot(data_to_plot.index, data_to_plot['lower_band'], label=f'Lower Band', color='red')
 
     # Plot Buy and Sell signals using the trades DataFrame
     buy_trades = trades[trades['Type'] == 'BUY']
