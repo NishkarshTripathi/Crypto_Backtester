@@ -25,8 +25,32 @@ The Crypto Backtester is a robust and flexible framework designed for backtestin
 * **Advanced Visualizations:** Generates various plots to visualize strategy performance, portfolio growth, drawdowns, trade executions, and more.
 * **Configuration-driven:** All backtesting parameters, including tickers, timeframe, date ranges, initial capital, commission rates, and strategy-specific parameters, are managed via a `config.yaml` file.
 
-## Getting Started
+## Key Performance Visualizations
 
+Here are some visualizations from a sample backtest run:
+
+### Price Chart with Trades and Indicators
+![Price Chart with Trades and Indicators](Images/BTCUSD_Price_Chart_with_Trades_and_Indicators.png)
+
+### Portfolio Performance
+![Portfolio Performance](Images/BTCUSD_Portfolio_Performance.png)
+
+### Distribution of PnL per Completed Trade
+![Distribution of PnL per Completed Trade](Images/BTCUSD_Distribution_of_PnL_per_Completed_Trade.png)
+
+### Cumulative Returns vs. Benchmark
+![Cumulative Returns vs Benchmark](Images/BTCUSD_Cumulative_Returns_vs_Benchmark.png)
+
+### Portfolio Drawdown
+![Portfolio Drawdown](Images/BTCUSD_Portfolio_Drawdown.png)
+
+### Rolling Sharpe Ratio
+![Rolling Sharpe Ratio](Images/BTCUSD_Rolling_Sharpe_Ratio.png)
+
+### Distribution of Daily Returns
+![Distribution of Daily Returns](Images/BTCUSD_Distribution_of_Daily_Returns.png)
+
+## Getting Started
 ### Prerequisites
 
 * Python 3.8+
