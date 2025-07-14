@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt  # Still needed for plt.show()
 # Import modules from our backtester and strategies directories
 from backtester.data_handler import DeltaExchangeDataHandler
 from backtester.backtesting_engine import BacktestingEngine
+from strategies.arima_strategy import ARIMAStrategy
 from strategies.moving_average_crossover import MovingAverageCrossoverStrategy  # Import our specific strategy
 from strategies.mean_reversion import MeanReversionStrategy
 
@@ -45,7 +46,7 @@ def main():
                     'std_dev_multiplier': 2.0
                 }
             },
-            'active_strategy': 'Mean_Reversion'  # New key to select active strategy
+            'active_strategy': 'Arima_Strategy'  # New key to select active strategy
         }
         with open(config_path, 'w') as f:
             yaml.dump(sample_config, f, default_flow_style=False)
@@ -56,7 +57,7 @@ def main():
         config = yaml.safe_load(f)
 
     tickers = config.get('tickers', [])
-    timeframe = config.get('timeframe', '1h')
+    timeframe = config.get('timeframe', None)
     start_date = config.get('start_date', None)
     end_date = config.get('end_date', None)
     initial_capital = config.get('initial_capital', 10000.0)
@@ -102,6 +103,12 @@ def main():
                     data_feed=historical_data,
                     window = current_strategy_params.get('window', 20),
                     std_dev_multiplier = current_strategy_params.get('std_dev_multiplier', 2.0)
+                )
+            elif active_strategy_name == 'Arima_Strategy':  # New strategy instantiation
+                strategy = ARIMAStrategy(
+                    data_feed=historical_data,
+                    order=tuple(current_strategy_params.get('order', [5, 1, 0])),  # Ensure order is a tuple
+                    prediction_period=current_strategy_params.get('prediction_period', 1)
                 )
             else:
                 raise ValueError(f"Unknown strategy: {active_strategy_name}")

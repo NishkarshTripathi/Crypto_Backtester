@@ -4,6 +4,63 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
+# ... (other functions) ...
+
+def plot_trades_on_price_chart(data_to_plot, trades, ticker):
+    """
+    Plots the close price, strategy-specific indicators, and trade signals.
+
+    Args:
+        data_to_plot (pd.DataFrame): DataFrame with 'close', 'final_signal',
+                                     and all indicator columns (e.g., short_ma, long_ma,
+                                     middle_band, upper_band, lower_band, predicted_price).
+        trades (pd.DataFrame): DataFrame containing executed trades.
+        ticker (str): The cryptocurrency ticker.
+    """
+    if data_to_plot.empty:
+        print(f"No data to plot trades on price chart for {ticker}.")
+        return
+
+    fig, ax = plt.subplots(figsize=(16, 9))
+
+    # Plot Close Price
+    ax.plot(data_to_plot.index, data_to_plot['close'], label='Close Price', color='gray', alpha=0.7)
+
+    # Plot Strategy Indicators dynamically
+    if 'short_ma' in data_to_plot.columns and 'long_ma' in data_to_plot.columns:
+        ax.plot(data_to_plot.index, data_to_plot['short_ma'], label='Short MA', color='orange')
+        ax.plot(data_to_plot.index, data_to_plot['long_ma'], label='Long MA', color='purple')
+    if 'middle_band' in data_to_plot.columns:
+        ax.plot(data_to_plot.index, data_to_plot['middle_band'], label='Middle Band (SMA)', color='blue', linestyle='--')
+        ax.plot(data_to_plot.index, data_to_plot['upper_band'], label='Upper Band', color='red', linestyle='--')
+        ax.plot(data_to_plot.index, data_to_plot['lower_band'], label='Lower Band', color='green', linestyle='--')
+    if 'predicted_price' in data_to_plot.columns: # <--- NEW: Plot Predicted Price
+        ax.plot(data_to_plot.index, data_to_plot['predicted_price'], label='ARIMA Predicted Price', color='cyan', linestyle=':')
+
+
+    # Plot Buy and Sell Signals (from final_signal in strategy_execution_data)
+    buy_signals = data_to_plot[data_to_plot['final_signal'] == 1]
+    sell_signals = data_to_plot[data_to_plot['final_signal'] == -1]
+
+    ax.scatter(buy_signals.index, buy_signals['close'], marker='^', color='green', s=100, label='Buy Signal', alpha=1)
+    ax.scatter(sell_signals.index, sell_signals['close'], marker='v', color='red', s=100, label='Sell Signal', alpha=1)
+
+    # Plot Actual Trades (from trades DataFrame)
+    # Filter for 'BUY' and 'SELL' trades for plotting
+    buy_trades = trades[trades['Type'] == 'BUY']
+    sell_trades = trades[trades['Type'] == 'SELL']
+
+    # Use the 'Price' column from the trades DataFrame for plotting trade execution points
+    ax.scatter(buy_trades['Timestamp'], buy_trades['Price'], marker='^', color='darkgreen', s=150, label='Actual Buy Trade', alpha=0.7, edgecolors='black')
+    ax.scatter(sell_trades['Timestamp'], sell_trades['Price'], marker='v', color='darkred', s=150, label='Actual Sell Trade', alpha=0.7, edgecolors='black')
+
+
+    ax.set_title(f'{ticker} Price Chart with Strategy Signals and Trades')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Price')
+    ax.legend()
+    ax.grid(True)
+    plt.tight_layout()
 
 def plot_portfolio_performance(portfolio_history, ticker):
     """
@@ -38,57 +95,6 @@ def plot_drawdowns(drawdown_series, max_drawdown_percent, ticker):
     plt.ylabel('Drawdown (%)')
     plt.grid(True)
     plt.tight_layout()
-
-
-def plot_trades_on_price_chart(data_to_plot, trades, ticker):
-    """
-    Plots the asset's close price, moving averages, and trade entry/exit points.
-
-    Args:
-        data_to_plot (pd.DataFrame): DataFrame containing 'close' price, 'short_ma', 'long_ma', and 'final_signal'.
-                                     This is the strategy_execution_data.
-        trades (pd.DataFrame): DataFrame containing trade information.
-        ticker (str): The ticker symbol for the plot title.
-    """
-    if data_to_plot.empty or 'close' not in data_to_plot.columns:
-        print(f"No price data to plot trades for {ticker}.")
-        return
-
-    plt.figure(figsize=(14, 7))
-    plt.plot(data_to_plot.index, data_to_plot['close'], label='Close Price', alpha=0.7)
-
-    # Plotting Moving Averages if they exist in data_to_plot
-    # For Moving Average Crossover
-    if 'short_ma' in data_to_plot.columns:
-        plt.plot(data_to_plot.index, data_to_plot['short_ma'], label=f'Short MA', color='orange')
-    if 'long_ma' in data_to_plot.columns:
-        plt.plot(data_to_plot.index, data_to_plot['long_ma'], label=f'Long MA', color='green')
-
-    # For Mean Reversion
-    if 'upper_band' in data_to_plot.columns:
-        plt.plot(data_to_plot.index, data_to_plot['upper_band'], label=f'Upper Band', color='orange')
-    if 'middle_band' in data_to_plot.columns:
-        plt.plot(data_to_plot.index, data_to_plot['middle_band'], label=f'Middle Band', color='green')
-    if 'lower_band' in data_to_plot.columns:
-        plt.plot(data_to_plot.index, data_to_plot['lower_band'], label=f'Lower Band', color='red')
-
-    # Plot Buy and Sell signals using the trades DataFrame
-    buy_trades = trades[trades['Type'] == 'BUY']
-    sell_trades = trades[trades['Type'] == 'SELL']
-
-    if not buy_trades.empty:
-        plt.scatter(buy_trades['Timestamp'], buy_trades['Price'], marker='^', color='green', s=100, label='Buy Signal', alpha=1)
-    if not sell_trades.empty:
-        plt.scatter(sell_trades['Timestamp'], sell_trades['Price'], marker='v', color='red', s=100, label='Sell Signal', alpha=1)
-
-
-    plt.title(f'{ticker} Price Chart with Trades and Indicators')
-    plt.xlabel('Date')
-    plt.ylabel('Price')
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-
 
 def plot_cumulative_returns_vs_benchmark(portfolio_history, ticker):
     """

@@ -23,11 +23,11 @@ The Crypto Backtester is a robust and flexible framework designed for backtestin
     * Expectancy
     * Up-Market and Down-Market Capture Ratios
 * **Advanced Visualizations:** Generates various plots to visualize strategy performance, portfolio growth, drawdowns, trade executions, and more.
-* **Configuration-driven:** All backtesting parameters, including tickers, timeframe, date ranges, initial capital, commission rates, and strategy-specific parameters, are managed via a `config.yaml` file.
+* **Configuration-Driven:** All backtesting parameters, including tickers, timeframe, date ranges, initial capital, commission rates, and strategy-specific parameters, are managed via a `config.yaml` file.
 
 ## Key Performance Visualizations
 
-Here are some visualizations from a sample backtest run:
+Here are some visualizations from a sample backtest run below:
 
 ### Price Chart with Trades and Indicators
 ![Price Chart with Trades and Indicators](Images/BTCUSD_Price_Chart_with_Trades_and_Indicators.png)
@@ -98,7 +98,7 @@ Before running the backtest, you need to set up your `config/config.yaml` file.
     end_date: 2024-06-30
     initial_capital: 10000.0
     commission_rate: 0.001 # 0.1% per trade
-    selected_strategy: Moving_Average_Crossover # Choose your strategy here
+    active_strategy: Moving_Average_Crossover # Choose your strategy here
     strategy_parameters:
       Moving_Average_Crossover:
         short_window: 10
@@ -113,7 +113,7 @@ Before running the backtest, you need to set up your `config/config.yaml` file.
     * `start_date`, `end_date`: The date range for historical data.
     * `initial_capital`: Starting capital for the backtest.
     * `commission_rate`: Transaction commission as a decimal (e.g., 0.001 for 0.1%).
-    * `selected_strategy`: **Crucially, specify the name of the strategy you want to run.** This name must match a key under `strategy_parameters`.
+    * `active_strategy`: **Crucially, specify the name of the strategy you want to run.** This name must match a key under `strategy_parameters`.
     * `strategy_parameters`: A nested dictionary where each key corresponds to a strategy name (e.g., `Moving_Average_Crossover`) and its value is a dictionary of parameters specific to that strategy.
 
 ### Running the Backtest
@@ -161,9 +161,9 @@ The modular design makes adding new strategies straightforward:
 
 3. Import your new strategy into main.py.
 
-4. Add your strategy's parameters to the strategy_parameters section in config/config.yaml under a key matching your strategy's class name (e.g., MyCustomStrategy).
+4. Add your strategy's parameters to the active_parameters section in config/config.yaml under a key matching your strategy's class name (e.g., MyCustomStrategy).
 
-5. Set selected_strategy in config.yaml to your new strategy's name.
+5. Set active_strategy in config.yaml to your new strategy's name.
 
 6. If your strategy introduces new indicators you want specifically highlighted on the price chart, you might need to make minor adjustments to visualizations/plotting.py's plot_trades_on_price_chart function to check for and plot these new columns.
 

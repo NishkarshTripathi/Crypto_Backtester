@@ -1,6 +1,8 @@
-active_strategy: Mean_Reversion
+# config/config.yaml
+
+active_strategy: Arima_Strategy
 commission_rate: 0.001
-end_date: '2025-06-30'
+end_date: '2025-07-30'
 initial_capital: 10000.0
 start_date: '2025-01-01'
 strategy_parameters:
@@ -10,6 +12,9 @@ strategy_parameters:
   Mean_Reversion:
     window: 20
     std_dev_multiplier: 2.0
+  Arima_Strategy:
+    order: [ 10, 1, 0 ] # Example: (p, d, q) order for ARIMA
+    prediction_period: 1
 tickers:
-- BTCUSD
+  - BTCUSD
 timeframe: 1h
